@@ -46,7 +46,7 @@ user.post("/signup", async (c) => {
       password: password,
     },
   });
-  c.status(301);
+  c.status(200);
 
   return c.json({ message: "regestered successfully", res });
 });

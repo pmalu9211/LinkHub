@@ -14,6 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { api } from "@/lib/axios";
 
 const formSchema = z.object({
   username: z.string().min(4, {
@@ -43,8 +44,14 @@ export function SigninForm() {
     },
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = async (data: any) => {
     console.log("Form Data:", data);
+    const response = await api.post("/user/signin", data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    console.log(response);
   };
 
   return (

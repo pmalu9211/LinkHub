@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { getPrisma } from "../../lib/prisma";
 import { getCookie } from "hono/cookie";
 import { verify } from "hono/jwt";
+import { getQueryParam, getQueryParams } from "hono/utils/url";
 
 interface Bindings {
   DATABASE_URL: string;
@@ -76,55 +77,78 @@ post.post("/upload", async (c) => {
   }
 });
 
-post.post("/upvote", async (c) => {
+post.put("/vote/:id", async (c) => {
   const prisma = getPrisma(c.env.DATABASE_URL);
   const body = await c.req.json();
-  const Sid = body.id as string;
+  const Sid = c.req.param("id");
   const id = Number(Sid);
 
-  console.log(body);
+  try {
+    if (!body.value || body.value > 1 || body.value < -1) {
+      return c.json({ message: "Value should be between -1 and 1" });
+    }
 
-  if (!id) {
-    return c.json({ message: " invalid id input" });
-  }
+    if (!id) {
+      return c.json({ message: " invalid id input" });
+    }
 
-  const res = await prisma.post.findFirst({
-    where: {
-      id,
-    },
-  });
-
-  if (!res) {
-    return c.json({ message: "post not found" });
-  }
-
-  const voted = await prisma.vote.findFirst({
-    where: {
-      postId: id,
-      userId: c.get("userId"),
-    },
-  });
-  let data;
-  if (voted) {
-    data =
-      voted?.value === 1
-        ? await prisma.vote.delete({ where: { id: voted.id } })
-        : await prisma.vote.update({
-            where: { id: voted.id },
-            data: { value: 1 },
-          });
-  } else {
-    data = await prisma.vote.create({
-      data: {
-        postId: id,
-        userId: c.get("userId"),
-        value: 1,
+    const res = await prisma.post.findFirst({
+      where: {
+        id,
       },
     });
-  }
 
-  try {
-    return c.json({ message: "Hello Hono!", data });
+    if (!res) {
+      return c.json({ message: "post not found" });
+    }
+
+    const voted = await prisma.vote.findFirst({
+      where: {
+        postId: id,
+        userId: c.get("userId"),
+      },
+    });
+
+    if (voted) {
+      await prisma.$transaction([
+        prisma.vote.update({
+          where: {
+            id: voted.id,
+          },
+          data: {
+            value: body.value,
+          },
+        }),
+        prisma.post.update({
+          where: {
+            id: id,
+          },
+          data: {
+            votesVal: { increment: body.value },
+          },
+        }),
+      ]);
+    } else {
+      await prisma.$transaction([
+        prisma.vote.create({
+          data: {
+            postId: id,
+            userId: c.get("userId"),
+            value: body.value,
+          },
+        }),
+        prisma.post.update({
+          where: {
+            id: id,
+          },
+          data: {
+            votesVal: { increment: body.value },
+          },
+        }),
+      ]);
+    }
+
+    return c.json({ message: "Hello Hono!" });
   } catch (e) {
     console.log(e);
     c.status(500);
@@ -132,60 +156,60 @@ post.post("/upvote", async (c) => {
   }
 });
 
-post.post("/downvote", async (c) => {
-  const prisma = getPrisma(c.env.DATABASE_URL);
-  const body = await c.req.json();
-  const Sid = body.id as string;
-  const id = Number(Sid);
+// post.post("/downvote", async (c) => {
+//   const prisma = getPrisma(c.env.DATABASE_URL);
+//   const body = await c.req.json();
+//   const Sid = body.id as string;
+//   const id = Number(Sid);
 
-  console.log(body);
+//   console.log(body);
 
-  if (!id) {
-    return c.json({ message: " invalid id input" });
-  }
+//   if (!id) {
+//     return c.json({ message: " invalid id input" });
+//   }
 
-  const res = await prisma.post.findFirst({
-    where: {
-      id,
-    },
-  });
+//   const res = await prisma.post.findFirst({
+//     where: {
+//       id,
+//     },
+//   });
 
-  if (!res) {
-    return c.json({ message: "post not found" });
-  }
+//   if (!res) {
+//     return c.json({ message: "post not found" });
+//   }
 
-  const voted = await prisma.vote.findFirst({
-    where: {
-      postId: id,
-      userId: c.get("userId"),
-    },
-  });
-  let data;
-  if (voted) {
-    data =
-      voted?.value === -1
-        ? await prisma.vote.delete({ where: { id: voted.id } })
-        : await prisma.vote.update({
-            where: { id: voted.id },
-            data: { value: -1 },
-          });
-  } else {
-    data = await prisma.vote.create({
-      data: {
-        postId: id,
-        userId: c.get("userId"),
-        value: -1,
-      },
-    });
-  }
+//   const voted = await prisma.vote.findFirst({
+//     where: {
+//       postId: id,
+//       userId: c.get("userId"),
+//     },
+//   });
+//   let data;
+//   if (voted) {
+//     data =
+//       voted?.value === -1
+//         ? await prisma.vote.delete({ where: { id: voted.id } })
+//         : await prisma.vote.update({
+//             where: { id: voted.id },
+//             data: { value: -1 },
+//           });
+//   } else {
+//     data = await prisma.vote.create({
+//       data: {
+//         postId: id,
+//         userId: c.get("userId"),
+//         value: -1,
+//       },
+//     });
+//   }
 
-  try {
-    return c.json({ message: "Downvoted", data });
-  } catch (e) {
-    console.log(e);
-    c.status(500);
-    return c.json({ message: "Something went wrong" });
-  }
-});
+//   try {
+//     return c.json({ message: "Downvoted", data });
+//   } catch (e) {
+//     console.log(e);
+//     c.status(500);
+//     return c.json({ message: "Something went wrong" });
+//   }
+// });
 
 export default post;

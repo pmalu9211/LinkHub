@@ -6,25 +6,42 @@ import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Post } from "@/lib/types";
 import { DownIcon, UpIcon } from "./elements/icons";
 import { useState } from "react";
+import useUpdateEffect from "@/hooks/useUpdateEffect";
 
-const testPost: Post = {
-  title: "test",
-  description: "more description",
-  link: "https://www.example.com",
-  votes: 9,
-};
+// const testPost: Post = {
+//   title: "test",
+//   description: "more description",
+//   link: "https://www.example.com",
+//   votes: 9,
+// };
 
 const selectedVote = "bg-black text-white border-green-500 ";
 
 type CardProps = React.ComponentProps<typeof Card>;
 
-export function CardDemo({ className, ...props }: CardProps) {
-  const [votes, setVotes] = useState(testPost.votes);
+async function updateVotes(postId: number) {
+  const res = await fetch(`/post/vote/${postId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const data = await res.json();
+  console.log(data);
+}
+
+export function CardDemo(
+  { testPost }: { testPost: Post },
+  { className, ...props }: CardProps
+) {
+  const [votes, setVotes] = useState(testPost.votesVal);
   const [upVoted, setUpVoted] = useState(false);
   const [downVoted, setDownVoted] = useState(false);
 
+  useUpdateEffect(() => {}, [votes]);
+
   return (
-    <Card className={cn("w-full", className)} {...props}>
+    <Card className={cn("w-full my-4", className)} {...props}>
       <div className="flex w-full justify-between">
         <CardHeader>
           <CardTitle>{testPost.title}</CardTitle>
