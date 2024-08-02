@@ -1,9 +1,9 @@
-import { ProfileForm } from "@/components/ProfileForm";
+import { PostForm } from "@/components/PostForm";
 
 export default function FormPage() {
   return (
     <>
-      <ProfileForm />
+      <PostForm />
     </>
   );
 }

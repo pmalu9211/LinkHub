@@ -35,7 +35,7 @@ const FormFieldWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export function ProfileForm() {
+export function PostForm() {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {

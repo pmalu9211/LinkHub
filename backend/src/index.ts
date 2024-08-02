@@ -1,37 +1,22 @@
 import { Hono } from "hono";
-import { getPrisma } from "../lib/prisma";
+import user from "./routes/user";
+import { cors } from "hono/cors";
+import post from "./routes/post";
 
-type Bindings = {
-  DATABASE_URL: string;
-};
+const app = new Hono();
 
-const app = new Hono<{ Bindings: Bindings }>();
+app.use(
+  "/api/*",
+  cors({
+    origin: "http://localhost:3000",
+    allowHeaders: ["X-Custom-Header", "Upgrade-Insecure-Requests"],
+    allowMethods: ["POST", "GET", "OPTIONS"],
+    exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
+    credentials: true,
+  })
+);
 
-app.post("api/v1/post", async (c) => {
-  const prisma = getPrisma(c.env.DATABASE_URL);
-  // const body = await c.req.parseBody();
-  const body = await c.req.formData();
-  const title = body.get("title") as string;
-  const link = body.get("link") as string;
-
-  console.log(body);
-
-  if (!title) {
-    return c.text("title is required");
-  }
-  if (!link) {
-    return c.text("link is required");
-  }
-
-  try {
-    const res = await prisma.post.create({
-      data: { title: title, link: link },
-    });
-    return c.json({ message: "Hello Hono!", res });
-  } catch (e) {
-    console.log(e);
-    return c.text("!");
-  }
-});
+app.route("api/v1/user", user);
+app.route("api/v1/post", post);
 
 export default app;
