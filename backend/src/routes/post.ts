@@ -15,13 +15,6 @@ interface Variables {
 
 const post = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-post.get("/posts", async (c) => {
-  const prisma = getPrisma(c.env.DATABASE_URL);
-
-  const res = await prisma.post.findMany();
-  return c.json({ message: "Hello Hono!", res });
-});
-
 post.use("*", async (c, next) => {
   const authHeader = getCookie(c, "token");
   if (!authHeader) {
@@ -42,6 +35,76 @@ post.use("*", async (c, next) => {
     console.error("Authentication error:", error);
     return c.json({ message: "Authentication failed" }, 403);
   }
+});
+
+post.get("/posts", async (c) => {
+  const authHeader = getCookie(c, "token");
+  const prisma = getPrisma(c.env.DATABASE_URL);
+  const currentUserId = c.get("userId");
+  console.log(currentUserId);
+
+  let numberOfPosts = 10;
+  let page = 1;
+  page = Number(getQueryParam(c.req.url, "page"));
+  let sortBy = String(getQueryParam(c.req.url, "sortBy")) || "votes";
+  let orderBy = String(getQueryParam(c.req.url, "orderBy")) || "descending";
+
+  console.log(
+    "//////////////////////////////////////////////////////////////////////////////////////////////////////////////"
+  );
+
+  console.log(page, sortBy, String(getQueryParam(c.req.url, "orderBy")));
+
+  if (page < 1) {
+    page = 1;
+  }
+
+  let orderByClause = "";
+
+  if (sortBy === "time") {
+    orderByClause = `p."createdAt" `;
+  } else {
+    orderByClause = `COALESCE(v."voteCount" :: int, 0) `;
+  }
+
+  if (orderBy === "ascending") {
+    orderByClause += `DESC`;
+  } else {
+    orderByClause += `ASC`;
+  }
+
+  console.log(orderByClause);
+
+  const posts = await prisma.$queryRawUnsafe<any>(`
+    SELECT
+      p.id :: int,
+      p.title,
+      p.link,
+      p."userId" :: int,
+      COALESCE(v."voteCount" :: int, 0) as "voteCount",
+      uv.value :: int as "userVote"
+    FROM 
+      "Post" p
+    LEFT JOIN 
+      (SELECT "postId", SUM(value) :: int as "voteCount"
+       FROM "Vote"
+       GROUP BY "postId") v ON p.id = v."postId"
+    LEFT JOIN
+      "Vote" uv ON p.id = uv."postId" AND uv."userId" = ${currentUserId}
+    ORDER BY 
+      ${orderByClause}
+    LIMIT ${numberOfPosts} OFFSET ${(page - 1) * numberOfPosts}
+  `);
+
+  const totalPosts = await prisma.post.aggregate({
+    _count: {
+      id: true,
+    },
+  });
+
+  const totalPages = Math.ceil(totalPosts._count.id / 10);
+  console.log("totalPages: ", totalPages);
+  return c.json({ message: "Hello Hono!", posts, totalPages });
 });
 
 post.post("/upload", async (c) => {
@@ -84,8 +147,11 @@ post.put("/vote/:id", async (c) => {
   const id = Number(Sid);
 
   try {
-    if (!body.value || body.value > 1 || body.value < -1) {
-      return c.json({ message: "Value should be between -1 and 1" });
+    if ((!body.value && body.value != 0) || body.value > 1 || body.value < -1) {
+      return c.json({
+        message: "Value should be between -1 and 1",
+        value: body.value,
+      });
     }
 
     if (!id) {
@@ -156,6 +222,35 @@ post.put("/vote/:id", async (c) => {
   }
 });
 
+export default post;
+
+////Dumpyard
+
+// const postsWithVoteSum = await prisma.post.findMany({
+//   include: {
+//     // _count: {
+//     //   select: {
+//     //     votes: true,
+//     //   },
+//     // },
+//     votes: {
+//       select: {
+//         value: true,
+//       },
+//     },
+//   },
+// });
+
+// const postsWithTotalVotes = postsWithVoteSum.map((post) => {
+//   const totalVotes = post.votes.reduce((acc, vote) => acc + vote.value, 0);
+//   return {
+//     ...post,
+//     totalVotes,
+//   };
+// });
+
+// console.log(postsWithTotalVotes);
+
 // post.post("/downvote", async (c) => {
 //   const prisma = getPrisma(c.env.DATABASE_URL);
 //   const body = await c.req.json();
@@ -211,5 +306,3 @@ post.put("/vote/:id", async (c) => {
 //     return c.json({ message: "Something went wrong" });
 //   }
 // });
-
-export default post;
