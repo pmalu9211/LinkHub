@@ -3,8 +3,15 @@ interface Post {
   title: string;
   description?: string;
   link: string;
-  voteCount: number;
   userVote: number | null;
+  createdAt: string;
+  voteCount: number;
 }
 
-export type { Post };
+interface User {
+  id: number;
+  name?: string;
+  username: string;
+}
+
+export type { Post, User };

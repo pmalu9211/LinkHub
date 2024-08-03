@@ -21,7 +21,7 @@ export function SelectPost({
 }) {
   return (
     <>
-      <div className=" flex gap-2 w-screen justify-start mt-8 ml-6  ">
+      <div className="  flex gap-2 justify-start mt-28 ml-2 sm:ml-6">
         <Select onValueChange={(value) => setSortBy(value)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Sort By" />

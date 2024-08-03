@@ -68,3 +68,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* @font-face {
+  font-family: 'CustomFont';
+  src: url('/fonts/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1pL7W0Q5n-wU.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  font-family: 'CustomFont', sans-serif;
+} */

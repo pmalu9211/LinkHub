@@ -15,68 +15,52 @@ interface Variables {
 
 const post = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-post.use("*", async (c, next) => {
-  const authHeader = getCookie(c, "token");
-  if (!authHeader) {
-    c.status(401);
-    return c.json({ message: "Please log in" });
-  }
-  try {
-    const user = await verify(authHeader, c.env.JWT_SECRET);
-
-    if (user.id) {
-      console.log("Authenticated user ID:", user.id);
-      c.set("userId", Number(user.id));
-      await next();
-    } else {
-      return c.json({ message: "You are not logged in" }, 403);
-    }
-  } catch (error) {
-    console.error("Authentication error:", error);
-    return c.json({ message: "Authentication failed" }, 403);
-  }
-});
-
 post.get("/posts", async (c) => {
-  const authHeader = getCookie(c, "token");
-  const prisma = getPrisma(c.env.DATABASE_URL);
-  const currentUserId = c.get("userId");
-  console.log(currentUserId);
+  try {
+    const authHeader = getCookie(c, "token");
+    if (authHeader) {
+      const user = await verify(authHeader, c.env.JWT_SECRET);
+      if (user.id) {
+        console.log("Authenticated user ID:", user.id);
+        c.set("userId", Number(user.id));
+      }
+    }
 
-  let numberOfPosts = 10;
-  let page = 1;
-  page = Number(getQueryParam(c.req.url, "page"));
-  let sortBy = String(getQueryParam(c.req.url, "sortBy")) || "votes";
-  let orderBy = String(getQueryParam(c.req.url, "orderBy")) || "descending";
+    const prisma = getPrisma(c.env.DATABASE_URL);
+    const currentUserId = c.get("userId") || -1;
+    console.log(currentUserId);
 
-  console.log(
-    "//////////////////////////////////////////////////////////////////////////////////////////////////////////////"
-  );
+    let numberOfPosts = 10;
+    let page = 1;
+    page = Number(getQueryParam(c.req.url, "page"));
+    let sortBy = String(getQueryParam(c.req.url, "sortBy")) || "votes";
+    let orderBy = String(getQueryParam(c.req.url, "orderBy")) || "descending";
 
-  console.log(page, sortBy, String(getQueryParam(c.req.url, "orderBy")));
+    console.log(page, sortBy, String(getQueryParam(c.req.url, "orderBy")));
 
-  if (page < 1) {
-    page = 1;
-  }
+    if (page < 1) {
+      page = 1;
+    }
 
-  let orderByClause = "";
+    let orderByClause = "";
 
-  if (sortBy === "time") {
-    orderByClause = `p."createdAt" `;
-  } else {
-    orderByClause = `COALESCE(v."voteCount" :: int, 0) `;
-  }
+    if (sortBy === "time") {
+      orderByClause = `p."createdAt" `;
+    } else {
+      orderByClause = `COALESCE(v."voteCount" :: int, 0) `;
+    }
 
-  if (orderBy === "ascending") {
-    orderByClause += `DESC`;
-  } else {
-    orderByClause += `ASC`;
-  }
+    if (orderBy === "ascending") {
+      orderByClause += `DESC`;
+    } else {
+      orderByClause += `ASC`;
+    }
 
-  console.log(orderByClause);
+    console.log(orderByClause);
 
-  const posts = await prisma.$queryRawUnsafe<any>(`
+    const posts = await prisma.$queryRawUnsafe<any>(`
     SELECT
+      p."createdAt" :: timestamp,
       p.id :: int,
       p.title,
       p.link,
@@ -96,15 +80,42 @@ post.get("/posts", async (c) => {
     LIMIT ${numberOfPosts} OFFSET ${(page - 1) * numberOfPosts}
   `);
 
-  const totalPosts = await prisma.post.aggregate({
-    _count: {
-      id: true,
-    },
-  });
+    const totalPosts = await prisma.post.aggregate({
+      _count: {
+        id: true,
+      },
+    });
 
-  const totalPages = Math.ceil(totalPosts._count.id / 10);
-  console.log("totalPages: ", totalPages);
-  return c.json({ message: "Hello Hono!", posts, totalPages });
+    const totalPages = Math.ceil(totalPosts._count.id / 10);
+    console.log("totalPages: ", totalPages);
+    c.status(200);
+    return c.json({ message: "Hello Hono!", posts, totalPages });
+  } catch (e: any) {
+    c.status(500);
+    return c.json({ message: e.message });
+  }
+});
+
+post.use("*", async (c, next) => {
+  const authHeader = getCookie(c, "token");
+  if (!authHeader) {
+    c.status(401);
+    return c.json({ message: "Please log in" });
+  }
+  try {
+    const user = await verify(authHeader, c.env.JWT_SECRET);
+
+    if (user.id) {
+      console.log("Authenticated user ID:", user.id);
+      c.set("userId", Number(user.id));
+      await next();
+    } else {
+      return c.json({ message: "You are not logged in" }, 401);
+    }
+  } catch (error) {
+    console.error("Authentication error:", error);
+    return c.json({ message: "Authentication failed" }, 401);
+  }
 });
 
 post.post("/upload", async (c) => {
@@ -118,9 +129,11 @@ post.post("/upload", async (c) => {
   console.log(body);
 
   if (!title) {
+    c.status(422);
     return c.json({ message: "title is required" });
   }
   if (!link) {
+    c.status(422);
     return c.json({ message: "link is required" });
   }
 
@@ -132,7 +145,7 @@ post.post("/upload", async (c) => {
         userId: Number(userId),
       },
     });
-    return c.json({ message: "Hello Hono!", res });
+    return c.json({ message: "Post Created", res });
   } catch (e) {
     console.log(e);
     c.status(500);
@@ -148,6 +161,7 @@ post.put("/vote/:id", async (c) => {
 
   try {
     if ((!body.value && body.value != 0) || body.value > 1 || body.value < -1) {
+      c.status(422);
       return c.json({
         message: "Value should be between -1 and 1",
         value: body.value,
@@ -155,6 +169,7 @@ post.put("/vote/:id", async (c) => {
     }
 
     if (!id) {
+      c.status(422);
       return c.json({ message: " invalid id input" });
     }
 
@@ -165,6 +180,7 @@ post.put("/vote/:id", async (c) => {
     });
 
     if (!res) {
+      c.status(422);
       return c.json({ message: "post not found" });
     }
 
@@ -176,45 +192,24 @@ post.put("/vote/:id", async (c) => {
     });
 
     if (voted) {
-      await prisma.$transaction([
-        prisma.vote.update({
-          where: {
-            id: voted.id,
-          },
-          data: {
-            value: body.value,
-          },
-        }),
-        prisma.post.update({
-          where: {
-            id: id,
-          },
-          data: {
-            votesVal: { increment: body.value },
-          },
-        }),
-      ]);
+      await prisma.vote.update({
+        where: {
+          id: voted.id,
+        },
+        data: {
+          value: body.value,
+        },
+      });
     } else {
-      await prisma.$transaction([
-        prisma.vote.create({
-          data: {
-            postId: id,
-            userId: c.get("userId"),
-            value: body.value,
-          },
-        }),
-        prisma.post.update({
-          where: {
-            id: id,
-          },
-          data: {
-            votesVal: { increment: body.value },
-          },
-        }),
-      ]);
+      await prisma.vote.create({
+        data: {
+          postId: id,
+          userId: c.get("userId"),
+          value: body.value,
+        },
+      });
     }
-
-    return c.json({ message: "Hello Hono!" });
+    return c.json({ message: "Voted successfully" });
   } catch (e) {
     console.log(e);
     c.status(500);

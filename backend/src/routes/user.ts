@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getPrisma } from "../../lib/prisma";
-import { getCookie, setCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { Jwt } from "hono/utils/jwt";
 import { verify } from "hono/jwt";
 
@@ -23,10 +23,12 @@ user.post("/signup", async (c) => {
   const password = body.get("password") as string;
 
   if (!username) {
+    c.status(422);
     return c.json({ message: "username is required" });
   }
 
   if (!password) {
+    c.status(422);
     return c.json({ message: "password is required" });
   }
 
@@ -36,6 +38,7 @@ user.post("/signup", async (c) => {
     },
   });
   if (existingUsername) {
+    c.status(422);
     return c.json({ message: "username already exists" });
   }
 
@@ -58,20 +61,28 @@ user.post("/signin", async (c) => {
   const password = body.get("password") as string;
 
   if (!username) {
+    c.status(422);
     return c.json({ message: "username is required" });
   }
 
   if (!password) {
+    c.status(422);
     return c.json({ message: "password is required" });
   }
 
   const user = await prisma.user.findFirst({
+    select: {
+      id: true,
+      name: true,
+      username: true,
+    },
     where: {
       password: password,
       username: username,
     },
   });
   if (!user) {
+    c.status(422);
     return c.json({ message: "Wrong credentials" });
   }
 
@@ -83,7 +94,7 @@ user.post("/signin", async (c) => {
 
   c.status(200);
 
-  return c.json({ message: "regestered successfully", user });
+  return c.json({ message: "Loged in successfully", user });
 });
 
 user.use("*", async (c, next) => {
@@ -100,11 +111,12 @@ user.use("*", async (c, next) => {
       c.set("userId", Number(user.id));
       await next();
     } else {
-      return c.json({ message: "You are not logged in" }, 403);
+      c.status(401);
+      return c.json({ message: "You are not logged in" }, 401);
     }
   } catch (error) {
     console.error("Authentication error:", error);
-    return c.json({ message: "Authentication failed" }, 403);
+    return c.json({ message: "Authentication failed" }, 401);
   }
 });
 
@@ -114,12 +126,19 @@ user.get("/profile", (c) => {
     select: {
       name: true,
       username: true,
+      id: true,
     },
     where: {
       id: Number(userId),
     },
   });
-  return c.text(`Hello, Pratham! Your user ID is ${userId}`); // eslint-disable-line
+  return c.json({ message: `user fetched `, user }); // eslint-disable-line
+});
+
+user.post("/logout", (c) => {
+  deleteCookie(c, "token");
+  c.status(200);
+  return c.json({ message: "logged out successfully" });
 });
 
 export default user;
