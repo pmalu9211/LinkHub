@@ -7,13 +7,14 @@ const app = new Hono();
 
 app.use(
   cors({
-    origin: "https://linkhub-khaki.vercel.app/",
+    origin: "https://linkhub-khaki.vercel.app",
+    allowMethods: ["POST", "GET", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
 app.get("/", (c) => {
-  return c.text("Hello Hono!");
+  return c.text("Hello pratham!");
 });
 
 app.route("api/v1/user", user);

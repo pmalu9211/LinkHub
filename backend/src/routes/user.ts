@@ -90,6 +90,8 @@ user.post("/signin", async (c) => {
 
   setCookie(c, "token", token, {
     maxAge: 34560000,
+    secure: true,
+    sameSite: "None",
   });
 
   c.status(200);
