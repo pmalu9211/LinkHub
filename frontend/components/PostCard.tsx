@@ -12,7 +12,8 @@ import convert from "@/lib/time";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-const selectedVote = "bg-black text-white border-from-blue-600 ";
+const selectedVote =
+  " bg-black dark:bg-cyan-200 dark:text-black text-white border-from-blue-600 ";
 
 type CardProps = React.ComponentProps<typeof Card>;
 
@@ -49,10 +50,8 @@ export function CardDemo(
               {testPost.link}
             </a>
           </div>
-          {/* {testPost.link}
-          </a> */}
         </CardHeader>
-        <div className="w-full  border-t-2 border-stone-300 sm:border-white mb-4"></div>
+        <div className="mx-2 max-w-full sm:w-0 border-t-2 border-stone-300 sm:border-white mb-4"></div>
         <CardFooter className="">
           <div className=" flex gap-2 items-center  ml-auto">
             <span

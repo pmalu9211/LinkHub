@@ -10,6 +10,7 @@ import { useRecoilState, useRecoilValue } from "recoil";
 import { api } from "@/lib/axios";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ModeToggle } from "./toggle";
 
 export default function Navbar() {
   const { push } = useRouter();
@@ -17,7 +18,7 @@ export default function Navbar() {
   const [user, setUser] = useRecoilState(profileState);
   const [loading, setLoading] = useState(false);
   return (
-    <nav className="fixed h-20 inset-x-0 top-0 z-30 bg-white dark:bg-gray-950/90 flex items-center shadow-lg">
+    <nav className="fixed h-20 inset-x-0 top-0 z-30 bg-white dark:bg-gray-950/90 flex items-center shadow-lg dark:shadow-zinc-800">
       <div className="w-full max-w-7xl mx-auto px-4">
         <div className="flex  h-14 items-center">
           <Link
@@ -38,7 +39,7 @@ export default function Navbar() {
               </Link>
             </div>
           )}
-          <div className="ml-auto items-center gap-4">
+          <div className="ml-auto items-center gap-4 flex">
             {user ? (
               <Button
                 size="md"
@@ -64,6 +65,7 @@ export default function Navbar() {
                 Sign In
               </Button>
             )}
+            <ModeToggle />
           </div>
         </div>
       </div>

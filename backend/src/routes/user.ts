@@ -3,6 +3,7 @@ import { getPrisma } from "../../lib/prisma";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { Jwt } from "hono/utils/jwt";
 import { verify } from "hono/jwt";
+import bcrypt from "bcrypt";
 
 type Bindings = {
   DATABASE_URL: string;
@@ -20,7 +21,7 @@ user.post("/signup", async (c) => {
   const body = await c.req.formData();
   const username = body.get("username") as string;
   const name = body.get("name") as string;
-  const password = body.get("password") as string;
+  let password = body.get("password") as string;
 
   if (!username) {
     c.status(422);
@@ -41,6 +42,8 @@ user.post("/signup", async (c) => {
     c.status(422);
     return c.json({ message: "username already exists" });
   }
+
+  password = bcrypt.hashSync(password, 10);
 
   const res = await prisma.user.create({
     data: {
@@ -75,17 +78,19 @@ user.post("/signin", async (c) => {
       id: true,
       name: true,
       username: true,
+      password: true,
     },
     where: {
-      password: password,
       username: username,
     },
   });
-  if (!user) {
+  const isPasswordValid = bcrypt.compareSync(password, user?.password || "");
+  if (!user || !isPasswordValid) {
     c.status(422);
     return c.json({ message: "Wrong credentials" });
   }
 
+  user.password = "";
   const token = await Jwt.sign({ id: user.id }, c.env.JWT_SECRET);
 
   setCookie(c, "token", token, {

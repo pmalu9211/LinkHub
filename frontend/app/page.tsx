@@ -69,7 +69,7 @@ export default function Home() {
     <>
       {loading && <LoadingComp></LoadingComp>}
       <SelectPost setSortBy={setSortBy} setOrderBy={setOrderBy}></SelectPost>
-      <div className="mx-6 p-4">
+      <div className="sm:mx-6 p-4">
         {data != null ? (
           data.map((post: Post) => (
             <CardDemo key={post.id} testPost={post}></CardDemo>
